@@ -1,0 +1,13 @@
+{
+  "name": "pulse-relay",
+  "version": "1.0.0",
+  "description": "Self-hosted Gun.js relay for the Pulse mesh network. Stores nothing.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "gun": "^0.2020.1240"
+  },
+  "license": "MIT"
+}

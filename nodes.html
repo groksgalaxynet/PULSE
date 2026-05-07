@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PULSE — Node Directory</title>
+    <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root{--bg:#080808;--surface:#0f0f0f;--border:#1a1a1a;--muted:#2e2e2e;--dim:#555;--text:#e0e0e0;--accent:#ff3b3b;--green:#00ff88;--mono:'Space Mono',monospace;--sans:'Syne',sans-serif;}
+        *{box-sizing:border-box;margin:0;padding:0;}
+        body{background:var(--bg);color:var(--text);font-family:var(--mono);height:100dvh;display:flex;flex-direction:column;overflow:hidden;}
+        body::after{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");pointer-events:none;z-index:9999;}
+
+        .topbar{height:46px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;}
+        .topbar-left{display:flex;align-items:center;gap:10px;}
+        .back-btn{font-family:var(--mono);font-size:0.55rem;letter-spacing:0.08em;text-transform:uppercase;padding:4px 8px;border-radius:3px;cursor:pointer;border:1px solid var(--muted);background:none;color:var(--dim);text-decoration:none;transition:all 0.12s;}
+        .back-btn:hover{border-color:var(--text);color:var(--text);}
+        .wordmark{font-family:var(--sans);font-weight:800;font-size:0.95rem;letter-spacing:0.18em;text-transform:uppercase;}
+        .wordmark em{color:var(--accent);font-style:normal;}
+        .pulse-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);animation:blink 2s ease-in-out infinite;}
+        @keyframes blink{0%,100%{opacity:1}50%{opacity:0.25}}
+        .topbar-right{display:flex;align-items:center;gap:8px;}
+        .tbtn{font-family:var(--mono);font-size:0.55rem;letter-spacing:0.08em;text-transform:uppercase;padding:4px 8px;border-radius:3px;cursor:pointer;border:1px solid var(--muted);background:none;color:var(--dim);transition:all 0.12s;}
+        .tbtn:hover{border-color:var(--text);color:var(--text);}
+        .tbtn.red{border-color:rgba(255,59,59,0.3);color:#ff3b3b;background:rgba(255,59,59,0.05);}
+
+        .peer-pill{font-size:0.55rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--dim);}
+        .peer-pill span{color:var(--green);font-weight:700;}
+
+        /* DIR */
+        .dir-wrap{flex:1;overflow-y:auto;padding:20px 24px;}
+        .dir-wrap::-webkit-scrollbar{width:3px;}
+        .dir-wrap::-webkit-scrollbar-thumb{background:var(--muted);}
+
+        .dir-header{margin-bottom:20px;}
+        .dir-header h1{font-family:var(--sans);font-weight:800;font-size:1.3rem;letter-spacing:0.15em;text-transform:uppercase;margin-bottom:4px;}
+        .dir-header p{font-size:0.6rem;color:var(--dim);letter-spacing:0.08em;line-height:1.7;}
+
+        .category-block{margin-bottom:28px;}
+        .cat-label{font-size:0.55rem;letter-spacing:0.18em;text-transform:uppercase;color:var(--dim);margin-bottom:8px;display:flex;align-items:center;gap:8px;}
+        .cat-label::after{content:'';flex:1;height:1px;background:var(--border);}
+
+        .node-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;}
+
+        .node-card{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:13px 14px;cursor:pointer;transition:all 0.15s;position:relative;overflow:hidden;text-decoration:none;display:block;}
+        .node-card:hover{border-color:var(--accent);background:rgba(255,59,59,0.03);}
+        .node-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--accent);opacity:0.3;}
+        .node-card.games::before{background:#a855f7;}
+        .node-card.ai::before{background:#00c97a;}
+        .node-card.3d::before{background:#00cfff;}
+        .node-card.dev::before{background:#f59e0b;}
+        .node-card.music::before{background:#f43f5e;}
+
+        .nc-top{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+        .nc-dot{width:6px;height:6px;border-radius:50%;background:var(--green);flex-shrink:0;animation:blink 2s ease-in-out infinite;}
+        .nc-name{font-size:0.75rem;font-weight:700;color:var(--text);}
+        .nc-type{font-size:0.5rem;color:var(--dim);margin-left:auto;text-transform:uppercase;letter-spacing:0.1em;}
+        .nc-desc{font-size:0.6rem;color:var(--dim);line-height:1.5;margin-bottom:8px;}
+        .nc-url{font-size:0.52rem;color:var(--muted);letter-spacing:0.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+        .nc-time{font-size:0.48rem;color:var(--muted);margin-top:4px;}
+
+        .empty-dir{text-align:center;color:var(--muted);font-size:0.65rem;line-height:2.4;letter-spacing:0.1em;text-transform:uppercase;padding:60px 0;}
+        .empty-dir .g{font-size:2rem;display:block;margin-bottom:10px;opacity:0.3;}
+        .link{color:var(--accent);cursor:pointer;}
+
+        /* OVERLAY */
+        .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:200;align-items:center;justify-content:center;}
+        .overlay.open{display:flex;}
+        .modal{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:24px;width:min(380px,92vw);}
+        .modal h2{font-family:var(--sans);font-size:0.9rem;font-weight:800;letter-spacing:0.15em;text-transform:uppercase;margin-bottom:6px;}
+        .modal p{font-size:0.6rem;color:var(--dim);line-height:1.6;margin-bottom:12px;}
+        .modal input{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:0.7rem;padding:8px 10px;border-radius:3px;outline:none;margin-bottom:8px;}
+        .modal input:focus{border-color:var(--accent);}
+        .modal-btns{display:flex;gap:7px;justify-content:flex-end;}
+
+        .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(10px);background:var(--surface);border:1px solid var(--green);color:var(--green);font-family:var(--mono);font-size:0.58rem;letter-spacing:0.1em;padding:6px 13px;border-radius:3px;opacity:0;transition:all 0.18s;pointer-events:none;z-index:400;}
+        .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+    </style>
+</head>
+<body>
+
+<div class="overlay" id="relay-modal">
+    <div class="modal">
+        <h2>Relay Config</h2>
+        <p>Connect to a relay to see live nodes.</p>
+        <input type="text" id="relay-inp" placeholder="ws://your-relay:8765" />
+        <div class="modal-btns">
+            <button class="tbtn" onclick="closeModal()">Cancel</button>
+            <button class="tbtn red" onclick="applyRelay()">Connect</button>
+        </div>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="topbar">
+    <div class="topbar-left">
+        <a class="back-btn" href="index.html">← Global</a>
+        <div class="pulse-dot"></div>
+        <span class="wordmark">PULSE<em>.</em>NODES</span>
+    </div>
+    <div class="topbar-right">
+        <span class="peer-pill">peers <span id="peer-count">—</span></span>
+        <button class="tbtn" id="relay-btn" onclick="openModal()">no relay</button>
+    </div>
+</div>
+
+<div class="dir-wrap">
+    <div class="dir-header">
+        <h1>⬡ Node Directory</h1>
+        <p>All live nodes broadcasting across the mesh. Each is hosted by someone, somewhere.<br>
+        Go offline → gone. No central registry. No approval.</p>
+    </div>
+
+    <div id="dir-content">
+        <div class="empty-dir">
+            <span class="g">⬡</span>
+            No relay connected.<br>
+            <span class="link" onclick="openModal()">⚡ Connect to see live nodes</span>
+        </div>
+    </div>
+</div>
+
+<script>
+const ROOMS = [
+    { key:'games', label:'Games 🎮', accent:'#a855f7' },
+    { key:'ai',    label:'AI 🤖',    accent:'#00c97a' },
+    { key:'3d',    label:'3D / VR ◈', accent:'#00cfff' },
+    { key:'dev',   label:'Dev ⌨',    accent:'#f59e0b' },
+    { key:'music', label:'Music ♪',  accent:'#f43f5e' },
+];
+
+let gun, peers = 0;
+let relay = localStorage.getItem('pulse_relay') || '';
+const peerEl  = document.getElementById('peer-count');
+const relayBtn= document.getElementById('relay-btn');
+const dirContent = document.getElementById('dir-content');
+
+function openModal() { document.getElementById('relay-modal').classList.add('open'); document.getElementById('relay-inp').value=relay; setTimeout(()=>document.getElementById('relay-inp').focus(),50); }
+function closeModal() { document.getElementById('relay-modal').classList.remove('open'); }
+document.getElementById('relay-modal').addEventListener('click', e=>{ if(e.target.id==='relay-modal') closeModal(); });
+document.getElementById('relay-inp').addEventListener('keydown', e=>{ if(e.key==='Enter') applyRelay(); });
+
+function applyRelay() {
+    const v = document.getElementById('relay-inp').value.trim(); if(!v) return;
+    relay=v; localStorage.setItem('pulse_relay',v); closeModal(); initGun(v);
+}
+
+if (relay) initGun(relay);
+
+function initGun(url) {
+    if (gun) gun.off();
+    const http = url.replace(/^ws(s?):\/\//, 'http$1://');
+    gun = Gun({ peers:[http], localStorage:false });
+    relayBtn.textContent = url.replace(/^wss?:\/\//,'').split(':')[0].substr(0,16);
+    gun.on('hi',  ()=>{ peers++; updPeers(); });
+    gun.on('bye', ()=>{ peers=Math.max(0,peers-1); updPeers(); });
+    updPeers();
+    loadAllNodes();
+}
+
+function loadAllNodes() {
+    dirContent.innerHTML = '';
+    ROOMS.forEach(room => {
+        const nodes = {};
+        const section = document.createElement('div');
+        section.className = 'category-block';
+        section.innerHTML = `<div class="cat-label">${room.label}</div><div class="node-grid" id="grid-${room.key}"><div style="font-size:0.55rem;color:var(--muted);padding:6px 0;">scanning...</div></div>`;
+        dirContent.appendChild(section);
+
+        gun.get('pulse-nodes-'+room.key+'-v1').map().on((d,id) => {
+            if (!d||!d.name) return;
+            nodes[id]=d;
+            const grid = document.getElementById('grid-'+room.key);
+            grid.innerHTML = '';
+            Object.values(nodes).filter(n=>n.name).forEach(n => {
+                const card = document.createElement('a');
+                card.className = 'node-card ' + room.key;
+                card.href = esc(n.url||'#');
+                card.target = '_blank';
+                card.rel = 'noopener';
+                const age = n.time ? Math.round((Date.now()-n.time)/60000)+'m ago' : '';
+                card.innerHTML = `
+                    <div class="nc-top">
+                        <span class="nc-dot"></span>
+                        <span class="nc-name">${esc(n.name)}</span>
+                        <span class="nc-type">${room.key}</span>
+                    </div>
+                    ${n.desc ? `<div class="nc-desc">${esc(n.desc)}</div>` : ''}
+                    <div class="nc-url">${esc(n.url||'')}</div>
+                    <div class="nc-time">${age}</div>`;
+                grid.appendChild(card);
+            });
+        });
+    });
+}
+
+function updPeers() {
+    peerEl.textContent = Math.max(1,peers);
+    peerEl.style.color = peers>1 ? 'var(--green)' : 'var(--dim)';
+}
+
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+</script>
+</body>
+</html>
